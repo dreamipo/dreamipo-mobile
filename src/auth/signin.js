@@ -1,18 +1,100 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Text, Dimensions, Pressable, TextInput, Alert } from 'react-native';
+import {
+    StyleSheet,
+    View,
+    Text,
+    Dimensions,
+    Pressable,
+    TextInput,
+    Alert,
+    Modal,
+    TouchableOpacity
+} from 'react-native';
+import supabase from './supabaseClient';
+import TabNavigator from '../allTabs/tabs';
 
 const screenWidth = Dimensions.get('window').width;
+
 const SignInScreen = ({ navigation }) => {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const handleSignUp = () => {
-        if (!name || !email || !password) {
-            Alert.alert("Error", "Please fill in all fields");
-        } else {
-            console.log("Signup Info:", { name, email, password });
-            Alert.alert("Signup successful!");
-            navigation.navigate('Home', { name, email }); // Navigate to Home and pass user details
+    const [phone, setPhone] = useState('');
+    const [otp, setOtp] = useState('');
+    const [otpModalVisible, setOtpModalVisible] = useState(false);
+
+    const handleSignUp = async () => {
+        if (!name || !email || !password || !phone) {
+            Alert.alert('Error', 'Please fill in all fields');
+            return;
+        }
+
+        try {
+            const { error } = await supabase.auth.signUp({
+                email,
+                password,
+            });
+
+            if (error) {
+                Alert.alert('Error', error.message);
+            } else {
+                console.log('User signed up successfully!');
+                Alert.alert('Success', 'Sign up successful!');
+
+                // Store user data in Supabase database
+                const { data, error: dbError } = await supabase
+                    .from('users')
+                    .insert([{ name, email, phone }]);
+
+                if (dbError) {
+                    console.error('Error inserting user data:', dbError);
+                    Alert.alert('Error', 'Failed to store user data.');
+                } else {
+                    console.log('User data stored successfully!');
+                }
+
+                // Send OTP for phone verification
+                const { error: otpError } = await supabase.auth.signInWithOtp({
+                    phone: phone, // Send OTP to the mobile number
+                });
+
+                if (otpError) {
+                    console.error('OTP Error:', otpError);
+                    Alert.alert('Error', 'Failed to send OTP. Please try again.');
+                } else {
+                    console.log('OTP sent successfully!');
+                    setOtpModalVisible(true); // Show OTP dialog/modal
+                }
+            }
+        } catch (error) {
+            console.error('Sign up failed:', error);
+            Alert.alert('Error', 'Something went wrong. Please try again.');
+        }
+    };
+
+    const handleOtpVerification = async () => {
+        if (!otp) {
+            Alert.alert('Error', 'Please enter the OTP');
+            return;
+        }
+
+        try {
+            const { error } = await supabase.auth.verifyOtp({
+                phone: phone,
+                otp: otp,
+            });
+
+            if (error) {
+                Alert.alert('Error', 'Invalid OTP. Please try again.');
+            } else {
+                Alert.alert('Success', 'OTP verified successfully!');
+                // Optionally navigate to the Home screen after successful OTP verification
+                navigation.navigate('TabNavigator', { name, email });
+                setOtpModalVisible(false); // Hide OTP modal
+            }
+        } catch (error) {
+            console.error('OTP verification failed:', error);
+            Alert.alert('Error', 'Something went wrong. Please try again.');
         }
     };
 
@@ -38,11 +120,47 @@ const SignInScreen = ({ navigation }) => {
                 onChangeText={setPassword}
                 secureTextEntry
             />
+            <TextInput
+                style={styles.input}
+                placeholder="Phone Number"
+                value={phone}
+                onChangeText={setPhone}
+                keyboardType="phone-pad"
+            />
             <Pressable onPress={handleSignUp}>
                 <View style={styles.signupButton}>
                     <Text style={styles.buttonText}>Sign Up</Text>
                 </View>
             </Pressable>
+
+            {/* OTP Verification Modal */}
+            <Modal
+                visible={otpModalVisible}
+                animationType="slide"
+                transparent={true}
+                onRequestClose={() => setOtpModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContainer}>
+                        <Text style={styles.modalText}>Enter OTP sent to your phone</Text>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Enter OTP"
+                            value={otp}
+                            onChangeText={setOtp}
+                            keyboardType="numeric"
+                        />
+                        <TouchableOpacity onPress={handleOtpVerification}>
+                            <View style={styles.signupButton}>
+                                <Text style={styles.buttonText}>Verify OTP</Text>
+                            </View>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => setOtpModalVisible(false)}>
+                            <Text style={styles.cancelButton}>Cancel</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 };
@@ -57,12 +175,12 @@ const styles = StyleSheet.create({
         paddingHorizontal: 10,
         fontSize: 16,
     },
-        signupButton: {
-        display: "flex",
-        flexDirection: "row",
-        justifyContent: "center",
-        alignItems: "center",
-        backgroundColor: "#007BFF",
+    signupButton: {
+        display: 'flex',
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#007BFF',
         width: screenWidth - 50,
         height: 48,
         borderRadius: 10,
@@ -72,6 +190,29 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
         fontWeight: '400',
         fontSize: 18,
+    },
+    modalOverlay: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0, 0, 0, 0.5)', // Transparent background
+    },
+    modalContainer: {
+        backgroundColor: 'white',
+        padding: 20,
+        borderRadius: 10,
+        width: screenWidth - 50,
+        alignItems: 'center',
+    },
+    modalText: {
+        fontSize: 18,
+        marginBottom: 10,
+        textAlign: 'center',
+    },
+    cancelButton: {
+        marginTop: 10,
+        color: 'red',
+        fontSize: 16,
     },
 });
 
