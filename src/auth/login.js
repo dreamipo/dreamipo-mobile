@@ -3,43 +3,44 @@ import {
     StyleSheet,
     View,
     Text,
-    Dimensions,
-    Pressable,
     TextInput,
+    Pressable,
     Alert,
+    Dimensions
 } from 'react-native';
 import supabase from './supabaseClient';
 
 const screenWidth = Dimensions.get('window').width;
 
-const LoginScreen = ({ navigation }) => {
+const Login = ({ navigation }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
 
     const handleLogin = async () => {
         if (!email || !password) {
-            Alert.alert('Error', 'Please fill in all fields');
+            Alert.alert('Error', 'Please fill in both fields');
             return;
         }
 
         try {
-            // Log in the user using Supabase
             const { data, error } = await supabase.auth.signInWithPassword({
                 email,
                 password,
             });
 
             if (error) {
+                console.error('Login failed:', error);
                 Alert.alert('Error', error.message);
-            } else if (data.user) {
-                console.log('User logged in successfully:', data.user);
+            } else {
+                console.log('Login successful!', data);
                 Alert.alert('Success', 'Login successful!');
-                
-                // Optionally navigate to the Home screen
-                navigation.navigate('Home', { email });
+                navigation.reset({
+                    index: 0,
+                    routes: [{ name: "TabNavigator", params: { email } }],
+                });
             }
         } catch (error) {
-            console.error('Login failed:', error);
+            console.error('Login error:', error);
             Alert.alert('Error', 'Something went wrong. Please try again.');
         }
     };
@@ -62,7 +63,7 @@ const LoginScreen = ({ navigation }) => {
             />
             <Pressable onPress={handleLogin}>
                 <View style={styles.loginButton}>
-                    <Text style={styles.buttonText}>Log In</Text>
+                    <Text style={styles.buttonText}>Login</Text>
                 </View>
             </Pressable>
         </View>
@@ -84,7 +85,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#007BFF',
+        backgroundColor: '#28A745',
         width: screenWidth - 50,
         height: 48,
         borderRadius: 10,
@@ -97,4 +98,4 @@ const styles = StyleSheet.create({
     },
 });
 
-export default LoginScreen;
+export default Login;

@@ -11,7 +11,7 @@ import {
     TouchableOpacity
 } from 'react-native';
 import supabase from './supabaseClient';
-import TabNavigator from '../allTabs/tabs';
+import Login from '../auth/login';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -80,17 +80,17 @@ const SignInScreen = ({ navigation }) => {
 
         try {
             const { error } = await supabase.auth.verifyOtp({
-                phone: phone,
+                phone: `+${phone}`,
                 otp: otp,
+                type: 'sms'
             });
-
-            if (error) {
-                Alert.alert('Error', 'Invalid OTP. Please try again.');
-            } else {
+            if(error){
                 Alert.alert('Success', 'OTP verified successfully!');
-                // Optionally navigate to the Home screen after successful OTP verification
-                navigation.navigate('TabNavigator', { name, email });
-                setOtpModalVisible(false); // Hide OTP modal
+            navigation.reset({
+                index: 0,
+                routes: [{ name:"TabNavigator", params: { name, email } }],
+            });
+            setOtpModalVisible(false); 
             }
         } catch (error) {
             console.error('OTP verification failed:', error);
@@ -132,6 +132,18 @@ const SignInScreen = ({ navigation }) => {
                     <Text style={styles.buttonText}>Sign Up</Text>
                 </View>
             </Pressable>
+
+             {/* Navigate to Login */}
+             <Pressable
+    onPress={() => {
+        navigation.navigate('Login');
+    }}
+>
+    <Text style={styles.loginText}>
+        Already have an account? Login here
+    </Text>
+</Pressable>
+
 
             {/* OTP Verification Modal */}
             <Modal
@@ -190,6 +202,13 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
         fontWeight: '400',
         fontSize: 18,
+    },
+    loginText: {
+        marginTop: 10,
+        textAlign: 'center',
+        color: '#007BFF',
+        fontSize: 16,
+        textDecorationLine: 'underline',
     },
     modalOverlay: {
         flex: 1,
